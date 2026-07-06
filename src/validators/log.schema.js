@@ -7,3 +7,9 @@ export const createLogSchema = z
     payload: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();
+
+export const logIdParamSchema = z.object({
+  id: z
+    .string()
+    .regex(/^[1-9]\d*$/, 'must be a positive numeric id'),
+});

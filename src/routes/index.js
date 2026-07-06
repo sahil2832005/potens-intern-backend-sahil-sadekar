@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { isDatabaseReady } from '../lib/prisma.js';
+import logRoutes from './log.routes.js';
 
 const router = Router();
 
@@ -17,5 +18,7 @@ router.get('/ready', async (_req, res) => {
 
   res.status(200).json({ status: 'ready' });
 });
+
+router.use('/log', logRoutes);
 
 export default router;

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { isDatabaseReady } from '../lib/prisma.js';
 import logRoutes from './log.routes.js';
 import verifyRoutes from './verify.routes.js';
+import exportRoutes from './export.routes.js';
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.get('/ready', async (_req, res) => {
 
 router.use('/log', logRoutes);
 router.use('/verify', verifyRoutes);
+router.use('/export', exportRoutes);
 
 export default router;

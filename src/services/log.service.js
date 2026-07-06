@@ -76,3 +76,33 @@ export async function getLogById(id) {
     },
   };
 }
+
+export async function exportLogs({ from, to, actor } = {}) {
+  const where = {};
+
+  if (actor) {
+    where.actor = actor;
+  }
+
+  if (from || to) {
+    where.createdAt = {};
+    if (from) {
+      where.createdAt.gte = new Date(from);
+    }
+    if (to) {
+      where.createdAt.lte = new Date(to);
+    }
+  }
+
+  const entries = await prisma.logEntry.findMany({
+    where,
+    orderBy: { id: 'asc' },
+  });
+
+  const formatted = entries.map(formatLogEntry);
+
+  return {
+    count: formatted.length,
+    entries: formatted,
+  };
+}

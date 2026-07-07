@@ -1,4 +1,4 @@
-import { GENESIS_HASH } from '../config/constants.js';
+import { GENESIS_HASH, LOG_APPEND_LOCK_KEY } from '../config/constants.js';
 import { computeEntryHash, verifyChainLink, verifyEntryHash } from '../lib/hash-chain.js';
 import { prisma } from '../lib/prisma.js';
 
@@ -18,6 +18,9 @@ export async function appendLog({ actor, action, payload }) {
   const createdAt = new Date();
 
   const entry = await prisma.$transaction(async (tx) => {
+    // Serialize appends so two concurrent POSTs cannot fork the chain.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${LOG_APPEND_LOCK_KEY})`;
+
     const lastEntry = await tx.logEntry.findFirst({
       orderBy: { id: 'desc' },
       select: { entryHash: true },

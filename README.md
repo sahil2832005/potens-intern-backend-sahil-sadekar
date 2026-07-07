@@ -20,44 +20,35 @@ Architecture and diagram are self-made — sketched before any application code 
 | Middleware | API key auth, Zod validation, POST rate limit |
 | Database | PostgreSQL with append-only triggers |
 
+- Append-only enforced in PostgreSQL (triggers), not only in application code.
+- Prisma for schema/migrations; append-only rules applied via SQL migration.
+
 ## Tech stack
 
 Node.js 20 · Express 5 · PostgreSQL 16 · Prisma 6 · Zod · pino · Docker
 
-## Prerequisites
-
-- Node.js 20+
-- Docker (for PostgreSQL, or full stack)
-
 ## Getting started
 
-### Local development
+**Prerequisite:** Docker Desktop (or Docker Engine + Compose)
 
-```powershell
-cp .env.example .env
-docker compose up postgres -d
-npm install
-npm run dev
+```bash
+docker compose up --build
 ```
+
+No `.env` file needed — config is in `docker-compose.yml`. Wait until app logs show `server started`.
 
 | Service | URL |
 |---------|-----|
 | API | `http://localhost:3000` |
 | PostgreSQL (host) | `localhost:5433` |
 
-Migrations run automatically on server boot.
+Test API key: `dev-api-key-change-in-production`
 
-### Docker (API + database)
-
-```powershell
-docker compose up
-```
-
-Inside Compose, Postgres listens on `5432`; the app uses the connection string from `docker-compose.yml`.
+Continue with [API testing](#api-testing) in a second terminal.
 
 ## Configuration
 
-Copy `.env.example` to `.env`.
+When using `docker compose up`, variables are defined in `docker-compose.yml`. `.env.example` documents the same settings for reference.
 
 | Variable | Description |
 |----------|-------------|
@@ -88,31 +79,114 @@ Protected routes require a valid `X-API-Key` header. `/health` and `/ready` are 
 | `GET` | `/verify` | Yes | Full chain scan. Returns `valid`, `totalEntries`, `firstBrokenId`, `reason`. |
 | `GET` | `/export` | Yes | Filtered export. Query: `from`, `to` (ISO 8601), `actor`. Returns `{ count, entries }`. |
 
-### Examples
+## API testing
 
-```powershell
-$headers = @{ "X-API-Key" = "dev-api-key-change-in-production" }
+Use a **second terminal** while the stack from [Getting started](#getting-started) is running.
 
-# Append
-Invoke-RestMethod -Uri http://localhost:3000/log -Method POST -Headers $headers `
-  -ContentType "application/json" `
-  -Body '{"actor":"user:42","action":"document.upload","payload":{"doc_id":"abc"}}'
+Set variables once:
 
-# Read & verify
-Invoke-RestMethod -Uri http://localhost:3000/log/1 -Headers $headers
-Invoke-RestMethod -Uri http://localhost:3000/verify -Headers $headers
-
-# Export
-Invoke-RestMethod -Uri "http://localhost:3000/export?actor=user:42" -Headers $headers
+```bash
+export BASE_URL=http://localhost:3000
+export API_KEY=dev-api-key-change-in-production
 ```
 
-## Implementation notes
+Windows PowerShell (`curl.exe`):
 
-- **Append-only enforcement** — DB triggers reject `UPDATE` and `DELETE`; writes go through `POST /log` only.
-- **Hash chain** — Canonical JSON (stable key order) hashed with SHA-256; genesis entries use `prevHash = "GENESIS"`.
-- **Verification split** — Per-entry checks on `GET /log/:id`; full scan on `GET /verify` (stops at first break).
-- **Schema tooling** — Prisma for migrations and queries; raw SQL migration for append-only triggers where ORM cannot enforce immutability.
-- **Security defaults** — Helmet, request IDs, timing-safe API key compare, structured errors via pino.
+```powershell
+$env:BASE_URL = "http://localhost:3000"
+$env:API_KEY = "dev-api-key-change-in-production"
+```
+
+### 1. Health checks (no auth)
+
+```bash
+curl -s "$BASE_URL/health"
+curl -s "$BASE_URL/ready"
+```
+
+```powershell
+curl.exe -s "$env:BASE_URL/health"
+curl.exe -s "$env:BASE_URL/ready"
+```
+
+### 2. Append log entries
+
+Creates a fresh chain from genesis. Run both commands in order.
+
+```bash
+curl -s -X POST "$BASE_URL/log" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"actor":"user:42","action":"document.upload","payload":{"doc_id":"abc"}}'
+
+curl -s -X POST "$BASE_URL/log" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"actor":"admin:raj","action":"user.login","payload":{"ip":"10.0.0.1"}}'
+```
+
+```powershell
+curl.exe -s -X POST "$env:BASE_URL/log" -H "X-API-Key: $env:API_KEY" -H "Content-Type: application/json" -d "{\"actor\":\"user:42\",\"action\":\"document.upload\",\"payload\":{\"doc_id\":\"abc\"}}"
+curl.exe -s -X POST "$env:BASE_URL/log" -H "X-API-Key: $env:API_KEY" -H "Content-Type: application/json" -d "{\"actor\":\"admin:raj\",\"action\":\"user.login\",\"payload\":{\"ip\":\"10.0.0.1\"}}"
+```
+
+Expected: `201` with `id`, `prevHash`, `entryHash`. First entry has `prevHash: "GENESIS"`.
+
+### 3. Get entry by ID (with verification)
+
+```bash
+curl -s "$BASE_URL/log/1" -H "X-API-Key: $API_KEY"
+curl -s "$BASE_URL/log/2" -H "X-API-Key: $API_KEY"
+```
+
+```powershell
+curl.exe -s "$env:BASE_URL/log/1" -H "X-API-Key: $env:API_KEY"
+curl.exe -s "$env:BASE_URL/log/2" -H "X-API-Key: $env:API_KEY"
+```
+
+Expected: `verification.verified` is `true` when the chain is intact.
+
+### 4. Verify full chain
+
+```bash
+curl -s "$BASE_URL/verify" -H "X-API-Key: $API_KEY"
+```
+
+```powershell
+curl.exe -s "$env:BASE_URL/verify" -H "X-API-Key: $env:API_KEY"
+```
+
+Expected after step 2: `{"valid":true,"totalEntries":2,"firstBrokenId":null}`
+
+### 5. Export entries
+
+```bash
+# All entries
+curl -s "$BASE_URL/export" -H "X-API-Key: $API_KEY"
+
+# Filter by actor
+curl -s "$BASE_URL/export?actor=user:42" -H "X-API-Key: $API_KEY"
+
+# Filter by date range (ISO 8601)
+curl -s "$BASE_URL/export?from=2026-01-01T00:00:00.000Z&to=2026-12-31T23:59:59.999Z" -H "X-API-Key: $API_KEY"
+```
+
+```powershell
+curl.exe -s "$env:BASE_URL/export" -H "X-API-Key: $env:API_KEY"
+curl.exe -s "$env:BASE_URL/export?actor=user:42" -H "X-API-Key: $env:API_KEY"
+```
+
+Expected: `{"count":2,"entries":[...]}` (count depends on filters).
+
+### Inspect database (optional)
+
+With the stack running, from the project root (requires Node.js installed locally):
+
+```bash
+DATABASE_URL=postgresql://postgres:postgres@localhost:5433/auditlog npx prisma studio
+```
+
+Opens a browser UI at `http://localhost:5555` to view `log_entries`. Not required for API testing.
 
 ## Repository structure
 
@@ -129,11 +203,3 @@ prisma/migrations/
 docker/
 docs/architecture.png
 ```
-
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start with nodemon |
-| `npm start` | Production start |
-| `npm run migrate` | Apply Prisma migrations |

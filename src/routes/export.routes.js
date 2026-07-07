@@ -9,7 +9,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', validate(exportQuerySchema, 'query'), async (req, res) => {
-  const result = await exportLogs(req.query);
+  const result = await exportLogs(req.validatedQuery);
   res.status(200).json(result);
 });
 

@@ -210,3 +210,30 @@ prisma/migrations/
 docker/
 docs/architecture.png
 ```
+
+## Gaps / unfinished
+
+- Stretch goals not implemented: `npm run verify` CLI, Merkle-style batch verification.
+- Minor: malformed JSON returns `INTERNAL_ERROR`; unsupported HTTP methods return 404.
+
+## Next steps
+
+- CI on push, production secret management, GET rate limits, export pagination.
+
+## AI use log
+
+| Tool | Approx usage | Used for |
+|------|--------------|----------|
+| Cursor | ~70 messages (~150k tokens) | Express/Prisma scaffold, Docker & Express 5 fixes, concurrency lock, README |
+| Docker MCP | Local agent sessions | Container stack inspection and compose workflow from IDE |
+| AI-assisted pen test (Burp + MITM proxies) | Lab runs | Auth bypass, header tampering, request replay on in-scope APIs |
+| Agent harness — security code review | Targeted passes | Middleware, auth, and input-validation review |
+| CrowdStrike security agent | Lab monitoring | Runtime posture checks in isolated local environment |
+| OWASP security agent | Checklist-driven review | OWASP Top 10 mapping for REST API endpoints |
+| Wiz (IaC misconfiguration scan) | Config review | Docker Compose and deployment config hygiene |
+| Trivy | Image scans | Container image vulnerability scanning |
+| Docker Scout | Image analysis | Base image and dependency risk signals |
+| Docker Gordon (AI base scans) | Image review | Base-image and Dockerfile hardening suggestions |
+| Custom self-hosted lab tools | Local isolation | Private security toolchain — no production data |
+
+Architecture, append-only DB design, and hash-chain model were planned manually before implementation.

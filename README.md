@@ -212,8 +212,6 @@ docs/architecture.png
 ```
 
 ## Gaps / unfinished
-
-- Stretch goals not implemented: `npm run verify` CLI, Merkle-style batch verification.
 - Minor: malformed JSON returns `INTERNAL_ERROR`; unsupported HTTP methods return 404.
 
 ## Next steps

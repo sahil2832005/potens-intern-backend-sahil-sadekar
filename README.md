@@ -188,6 +188,13 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5433/auditlog npx prisma s
 
 Opens a browser UI at `http://localhost:5555` to view `log_entries`. Not required for API testing.
 
+## Testing reports
+
+| Report | Link |
+|--------|------|
+| QA Test Report | [View report](https://sahilsadekar249775.atlassian.net/wiki/spaces/MFS/pages/524289) |
+| Security Test Report | [View report](https://sahilsadekar249775.atlassian.net/wiki/spaces/MFS/pages/557057) |
+
 ## Repository structure
 
 ```
